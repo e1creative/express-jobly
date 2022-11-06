@@ -1,0 +1,4 @@
+- Added commenting in:
+  /helpers/sql.js,
+  /models/user.js,
+  /models/company.js
