@@ -12,6 +12,7 @@ const {
   commonAfterEach,
   commonAfterAll,
   u1Token,
+  u3Token // JMT: add u3Token (isAdmin: true)
 } = require("./_testCommon");
 
 beforeAll(commonBeforeAll);
@@ -21,8 +22,10 @@ afterAll(commonAfterAll);
 
 /************************************** POST /users */
 
+// JMT: modify to work with ensureIsAdmin middleware. changed all users to ADMIN user (u3Token)
+
 describe("POST /users", function () {
-  test("works for users: create non-admin", async function () {
+  test("works for ADMIN users: create non-admin", async function () {
     const resp = await request(app)
         .post("/users")
         .send({
@@ -33,7 +36,7 @@ describe("POST /users", function () {
           email: "new@email.com",
           isAdmin: false,
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(201);
     expect(resp.body).toEqual({
       user: {
@@ -46,7 +49,7 @@ describe("POST /users", function () {
     });
   });
 
-  test("works for users: create admin", async function () {
+  test("works for ADMIN users: create admin", async function () {
     const resp = await request(app)
         .post("/users")
         .send({
@@ -57,7 +60,7 @@ describe("POST /users", function () {
           email: "new@email.com",
           isAdmin: true,
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(201);
     expect(resp.body).toEqual({
       user: {
@@ -69,6 +72,23 @@ describe("POST /users", function () {
       }, token: expect.any(String),
     });
   });
+
+  // JMT: add check for NON-ADMIN logged-in user
+  test("unauth for anon", async function () {
+    const resp = await request(app)
+        .post("/users")
+        .send({
+          username: "u-new",
+          firstName: "First-new",
+          lastName: "Last-newL",
+          password: "password-new",
+          email: "new@email.com",
+          isAdmin: true,
+        })
+        .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
+  // JMT: end
 
   test("unauth for anon", async function () {
     const resp = await request(app)
@@ -90,7 +110,7 @@ describe("POST /users", function () {
         .send({
           username: "u-new",
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(400);
   });
 
@@ -105,18 +125,20 @@ describe("POST /users", function () {
           email: "not-an-email",
           isAdmin: true,
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(400);
   });
 });
 
 /************************************** GET /users */
 
+// JMT: modify to work with ensureIsAdmin middleware. changed all users to ADMIN user (u3Token)
+
 describe("GET /users", function () {
-  test("works for users", async function () {
+  test("works for ADMIN users", async function () {
     const resp = await request(app)
         .get("/users")
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.body).toEqual({
       users: [
         {
@@ -138,11 +160,20 @@ describe("GET /users", function () {
           firstName: "U3F",
           lastName: "U3L",
           email: "user3@user.com",
-          isAdmin: false,
+          isAdmin: true, // JMT: changed this to "true", since we changed it in the _testCommon.js file
         },
       ],
     });
   });
+
+  // JMT: add check for NON-ADMIN logged in user with u1Token (non-admin)
+  test("unauth for anon", async function () {
+    const resp = await request(app)
+        .get("/users")
+        .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });  
+  // JMT: end
 
   test("unauth for anon", async function () {
     const resp = await request(app)
@@ -157,15 +188,33 @@ describe("GET /users", function () {
     await db.query("DROP TABLE users CASCADE");
     const resp = await request(app)
         .get("/users")
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(500);
   });
 });
 
 /************************************** GET /users/:username */
 
+// JMT: modify to work with ensureCorrectUser middleware. changed all users to ADMIN user (u3Token) OR correct/incorrect user
+
 describe("GET /users/:username", function () {
-  test("works for users", async function () {
+  test("works for ADMIN users", async function () {
+    const resp = await request(app)
+        .get(`/users/u1`)
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.body).toEqual({
+      user: {
+        username: "u1",
+        firstName: "U1F",
+        lastName: "U1L",
+        email: "user1@user.com",
+        isAdmin: false,
+      },
+    });
+  });
+
+  // JMT: add check for CORRECT user (token same as username), but NOT ADMIN
+  test("works for SAME USERNAME as user", async function () {
     const resp = await request(app)
         .get(`/users/u1`)
         .set("authorization", `Bearer ${u1Token}`);
@@ -179,6 +228,7 @@ describe("GET /users/:username", function () {
       },
     });
   });
+  // JMT: end
 
   test("unauth for anon", async function () {
     const resp = await request(app)
@@ -189,15 +239,36 @@ describe("GET /users/:username", function () {
   test("not found if user not found", async function () {
     const resp = await request(app)
         .get(`/users/nope`)
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(404);
   });
 });
 
 /************************************** PATCH /users/:username */
 
+// JMT: modify to work with ensureCorrectUser middleware. changed all users to ADMIN user (u3Token) OR correct/incorrect user
+
 describe("PATCH /users/:username", () => {
-  test("works for users", async function () {
+  test("works for ADMIN users", async function () {
+    const resp = await request(app)
+        .patch(`/users/u1`)
+        .send({
+          firstName: "New",
+        })
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.body).toEqual({
+      user: {
+        username: "u1",
+        firstName: "New",
+        lastName: "U1L",
+        email: "user1@user.com",
+        isAdmin: false,
+      },
+    });
+  });
+
+  // JMT: add check for CORRECT user (token same as username), but NOT ADMIN
+  test("works for CORRECT user NON-ADMIN", async function () {
     const resp = await request(app)
         .patch(`/users/u1`)
         .send({
@@ -214,6 +285,7 @@ describe("PATCH /users/:username", () => {
       },
     });
   });
+  // JMT: end
 
   test("unauth for anon", async function () {
     const resp = await request(app)
@@ -230,7 +302,7 @@ describe("PATCH /users/:username", () => {
         .send({
           firstName: "Nope",
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(404);
   });
 
@@ -240,7 +312,7 @@ describe("PATCH /users/:username", () => {
         .send({
           firstName: 42,
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(400);
   });
 
@@ -250,7 +322,7 @@ describe("PATCH /users/:username", () => {
         .send({
           password: "new-password",
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.body).toEqual({
       user: {
         username: "u1",
@@ -267,13 +339,24 @@ describe("PATCH /users/:username", () => {
 
 /************************************** DELETE /users/:username */
 
+// JMT: modify to work with ensureCorrectUser middleware. changed all users to ADMIN user (u3Token) OR correct/incorrect user
+
 describe("DELETE /users/:username", function () {
-  test("works for users", async function () {
+  test("works for ADMIN users", async function () {
+    const resp = await request(app)
+        .delete(`/users/u1`)
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.body).toEqual({ deleted: "u1" });
+  });
+
+  // JMT: add check for CORRECT user (token same as username), but NOT ADMIN
+  test("works for CORRECT user NON-ADMIN", async function () {
     const resp = await request(app)
         .delete(`/users/u1`)
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.body).toEqual({ deleted: "u1" });
   });
+  // JMT: end
 
   test("unauth for anon", async function () {
     const resp = await request(app)
@@ -284,7 +367,7 @@ describe("DELETE /users/:username", function () {
   test("not found if user missing", async function () {
     const resp = await request(app)
         .delete(`/users/nope`)
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(404);
   });
 });

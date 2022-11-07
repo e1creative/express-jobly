@@ -11,6 +11,7 @@ const {
   commonAfterEach,
   commonAfterAll,
   u1Token,
+  u3Token // JMT: add u3Token (isAdmin: true)
 } = require("./_testCommon");
 const { BadRequestError } = require("../expressError");
 
@@ -21,6 +22,8 @@ afterAll(commonAfterAll);
 
 /************************************** POST /companies */
 
+// JMT: modify to work with ensureIsAdmin middleware. changed all users to ADMIN user (u3Token)
+
 describe("POST /companies", function () {
   const newCompany = {
     handle: "new",
@@ -29,18 +32,38 @@ describe("POST /companies", function () {
     description: "DescNew",
     numEmployees: 10,
   };
-
-  test("ok for users", async function () {
+  // JMT: u3 is an admin
+  test("ok for admins", async function () {
     const resp = await request(app)
         .post("/companies")
         .send(newCompany)
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(201);
     expect(resp.body).toEqual({
       company: newCompany,
     });
   });
 
+  test("NOT ok for NON-admin users", async function () {
+    const resp = await request(app)
+        .post("/companies")
+        .send(newCompany)
+        .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
+
+  // test("ok for users", async function () {
+  //   const resp = await request(app)
+  //       .post("/companies")
+  //       .send(newCompany)
+  //       .set("authorization", `Bearer ${u1Token}`);
+  //   expect(resp.statusCode).toEqual(201);
+  //   expect(resp.body).toEqual({
+  //     company: newCompany,
+  //   });
+  // });
+
+  // JMT: change authorization to an admin (u3Token)
   test("bad request with missing data", async function () {
     const resp = await request(app)
         .post("/companies")
@@ -48,10 +71,11 @@ describe("POST /companies", function () {
           handle: "new",
           numEmployees: 10,
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(400);
   });
 
+  // JMT: change authorization to an admin (u3Token)
   test("bad request with invalid data", async function () {
     const resp = await request(app)
         .post("/companies")
@@ -59,12 +83,14 @@ describe("POST /companies", function () {
           ...newCompany,
           logoUrl: "not-a-url",
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(400);
   });
 });
 
 /************************************** GET /companies */
+
+// JMT: modify to work with filters
 
 describe("GET /companies", function () {
   // JMT: added testing for validation of data before sending req.body to our model
@@ -198,14 +224,16 @@ describe("GET /companies/:handle", function () {
 
 /************************************** PATCH /companies/:handle */
 
+// JMT: modify to work with ensureIsAdmin middleware. changed all users to ADMIN user (u3Token)
+
 describe("PATCH /companies/:handle", function () {
-  test("works for users", async function () {
+  test("works for ADMIN users", async function () {
     const resp = await request(app)
         .patch(`/companies/c1`)
         .send({
           name: "C1-new",
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.body).toEqual({
       company: {
         handle: "c1",
@@ -216,6 +244,18 @@ describe("PATCH /companies/:handle", function () {
       },
     });
   });
+
+  // JMT: add check for NON-ADMIN logged in user with u1Token (non-admin)
+  test("unauth for anon", async function () {
+    const resp = await request(app)
+        .patch(`/companies/c1`)
+        .send({
+          name: "C1-new",
+        })
+        .set("authorization", `Bearer ${u1Token}`);;
+    expect(resp.statusCode).toEqual(401);
+  });
+  // JMT: end
 
   test("unauth for anon", async function () {
     const resp = await request(app)
@@ -232,7 +272,7 @@ describe("PATCH /companies/:handle", function () {
         .send({
           name: "new nope",
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(404);
   });
 
@@ -242,7 +282,7 @@ describe("PATCH /companies/:handle", function () {
         .send({
           handle: "c1-new",
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(400);
   });
 
@@ -252,20 +292,31 @@ describe("PATCH /companies/:handle", function () {
         .send({
           logoUrl: "not-a-url",
         })
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(400);
   });
 });
 
 /************************************** DELETE /companies/:handle */
 
+// JMT: modify to work with ensureIsAdmin middleware
+
 describe("DELETE /companies/:handle", function () {
-  test("works for users", async function () {
+  test("works for ADMIN users", async function () {
+    const resp = await request(app)
+        .delete(`/companies/c1`)
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.body).toEqual({ deleted: "c1" });
+  });
+
+  // JMT: add check for NON-ADMIN logged in user with u1Token (non-admin)
+  test("unauth for NON-ADMIN logged in user", async function () {
     const resp = await request(app)
         .delete(`/companies/c1`)
         .set("authorization", `Bearer ${u1Token}`);
-    expect(resp.body).toEqual({ deleted: "c1" });
+    expect(resp.statusCode).toEqual(401);
   });
+  // JMT: end
 
   test("unauth for anon", async function () {
     const resp = await request(app)
@@ -276,7 +327,7 @@ describe("DELETE /companies/:handle", function () {
   test("not found for no such company", async function () {
     const resp = await request(app)
         .delete(`/companies/nope`)
-        .set("authorization", `Bearer ${u1Token}`);
+        .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(404);
   });
 });

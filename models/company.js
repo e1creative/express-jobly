@@ -149,7 +149,6 @@ class Company {
     FROM companies
     ${sqlWhereCondStr}
     ORDER BY name`;
-    console.log("SQL query: ".blue, query)
 
     const companiesRes = await db.query(query, filterVals);
     return companiesRes.rows;

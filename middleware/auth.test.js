@@ -5,6 +5,8 @@ const { UnauthorizedError } = require("../expressError");
 const {
   authenticateJWT,
   ensureLoggedIn,
+  ensureIsAdmin,
+  ensureCorrectUser
 } = require("./auth");
 
 
@@ -61,6 +63,7 @@ describe("ensureLoggedIn", function () {
   test("works", function () {
     expect.assertions(1);
     const req = {};
+    // JMT: found ERROR IN THIS TEST.  res.locals contains "isAdmin", NOT "is_admin"
     const res = { locals: { user: { username: "test", is_admin: false } } };
     const next = function (err) {
       expect(err).toBeFalsy();
@@ -76,5 +79,65 @@ describe("ensureLoggedIn", function () {
       expect(err instanceof UnauthorizedError).toBeTruthy();
     };
     ensureLoggedIn(req, res, next);
+  });
+});
+
+/**
+ * JMT: adding 2 describes +  4 tests to check our additional auth methods
+ */
+describe("ensureIsAdmin", function () {
+  test("works", function () {
+    expect.assertions(1);
+    const req = {};
+    const res = { locals: { user: { username: "test", isAdmin: true } } };
+    const next = function (err) {
+      expect(err).toBeFalsy();
+    };
+    ensureIsAdmin(req, res, next);
+  });
+
+  test("unauth if not admin", function () {
+    expect.assertions(1);
+    const req = {};
+    const res = { locals: { user: { username: "test", isAdmin: false } } };
+    const next = function (err) {
+      expect(err instanceof UnauthorizedError).toBeTruthy();
+    };
+    ensureIsAdmin(req, res, next);
+  });
+});
+
+describe("ensureCorrectUser", function () {
+  test("works if correct user", function () {
+    expect.assertions(1);
+    // JMT: :username param is test, logged in user is "test", but NOT an admin
+    const req = { params: { username: 'test' } };
+    const res = { locals: { user: { username: "test", isAdmin: false } } };
+    const next = function (err) {
+      expect(err).toBeFalsy();
+    };
+    ensureCorrectUser(req, res, next);
+  });
+
+  test("works if user is admin", function () {
+    expect.assertions(1);
+    // JMT: :username param is testuser, logged in user is NOT "testuser", but is an admin
+    const req = { params: { username: 'testuser' } };
+    const res = { locals: { user: { username: "test", isAdmin: true } } };
+    const next = function (err) {
+      expect(err).toBeFalsy();
+    };
+    ensureCorrectUser(req, res, next);
+  });
+
+  test("unauth if /:username does not match OR not admin", function () {
+    expect.assertions(1);
+    // JMT: :username param is testuser, but logged in user is not admin and a different username
+    const req = { params: { username: 'testuser' } };
+    const res = { locals: { user: { username: "test", isAdmin: false } } };
+    const next = function (err) {
+      expect(err instanceof UnauthorizedError).toBeTruthy();
+    };
+    ensureCorrectUser(req, res, next);
   });
 });
