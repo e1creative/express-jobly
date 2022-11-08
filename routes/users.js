@@ -123,5 +123,18 @@ router.delete("/:username", ensureCorrectUser, async function (req, res, next) {
   }
 });
 
+/** JMT: APPLY FOR JOB
+ * 
+ * returns => { applied: jobId }
+ */
+router.post("/:username/jobs/:id", ensureCorrectUser ,async function (req, res, next) {
+  try {
+    const application = await User.applyForJob(req.params.username, req.params.id);
+    return res.json(application);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 
 module.exports = router;

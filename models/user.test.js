@@ -117,6 +117,7 @@ describe("findAll", function () {
         lastName: "U1L",
         email: "u1@email.com",
         isAdmin: false,
+        jobs: expect.any(Array)
       },
       {
         username: "u2",
@@ -124,6 +125,7 @@ describe("findAll", function () {
         lastName: "U2L",
         email: "u2@email.com",
         isAdmin: false,
+        jobs: expect.any(Array)
       },
     ]);
   });
@@ -140,6 +142,7 @@ describe("get", function () {
       lastName: "U1L",
       email: "u1@email.com",
       isAdmin: false,
+      jobs: expect.any(Array)
     });
   });
 
@@ -225,6 +228,65 @@ describe("remove", function () {
       fail();
     } catch (err) {
       expect(err instanceof NotFoundError).toBeTruthy();
+    }
+  });
+});
+
+/************************************** apply */
+
+describe("apply for job", function () {
+  test("works", async function () {
+    const job1 = await db.query(`
+      SELECT *
+      FROM jobs
+      WHERE title='job1'`);
+    const testJobId = job1.rows[0].id;
+
+    const res = await User.applyForJob('u1', testJobId);
+    // const res = await db.query(
+    //     `SELECT * FROM jobs WHERE username='u1' and job_id=${testJobId}`);
+
+    expect(res).toEqual({ applied: testJobId });
+  });
+
+  test("not found if no such user", async function () {
+    const job1 = await db.query(`
+      SELECT *
+      FROM jobs
+      WHERE title='job1'`);
+    const testJobId = job1.rows[0].id;
+
+    try {
+      await User.applyForJob("nope", testJobId);
+      fail();
+    } catch (err) {
+      expect(err instanceof BadRequestError).toBeTruthy();
+    }
+  });
+
+  test("not found if no such job ID", async function () {
+    try {
+      await User.applyForJob("u1", 0);
+      fail();
+    } catch (err) {
+      expect(err instanceof BadRequestError).toBeTruthy();
+    }
+  });
+
+  test("doesn't work if dupe found", async function () {
+    const job1 = await db.query(`
+      SELECT *
+      FROM jobs
+      WHERE title='job1'`);
+    const testJobId = job1.rows[0].id;
+
+    await User.applyForJob("u1", testJobId);
+
+    try {
+      await User.applyForJob("u1", testJobId);
+      fail();
+    } catch (err) {
+      expect(err instanceof BadRequestError).toBeTruthy();
     }
   });
 });

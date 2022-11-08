@@ -158,26 +158,44 @@ class Company {
    *
    * Returns { handle, name, description, numEmployees, logoUrl, jobs }
    *   where jobs is [{ id, title, salary, equity, companyHandle }, ...]
-   *
+   * 
    * Throws NotFoundError if not found.
    **/
 
+  /**
+   * JMT: modify get(handle) to return list of jobs
+   * 
+   * - modify select query to include a join
+   * - add destructuring of company data from 1st row
+   * - add map function to create array of jobs
+   * - modify error check to verify existence of return rows
+   */
   static async get(handle) {
-    const companyRes = await db.query(
-          `SELECT handle,
-                  name,
-                  description,
-                  num_employees AS "numEmployees",
-                  logo_url AS "logoUrl"
-           FROM companies
-           WHERE handle = $1`,
-        [handle]);
+    const companyRes = await db.query(`
+        SELECT handle,
+            name,
+            description,
+            num_employees AS "numEmployees",
+            logo_url AS "logoUrl",
+            id,
+            title,
+            salary,
+            equity
+        FROM companies as c
+        LEFT JOIN jobs as j
+        ON c.handle = j.company_handle
+        WHERE handle = $1;
+        `, [handle]);
 
-    const company = companyRes.rows[0];
+    if (!companyRes.rows[0]) throw new NotFoundError(`No company: ${handle}`);
 
-    if (!company) throw new NotFoundError(`No company: ${handle}`);
+    const { name, description, numEmployees, logoUrl } = companyRes.rows[0];
 
-    return company;
+    const jobs = companyRes.rows.map(r => {
+      return ({id: r.id, title: r.title, salary: r.salary, equity: r.equity})
+    });
+
+    return ({ handle, name, description, numEmployees, logoUrl, jobs });
   }
 
   /** Update company data with `data`.

@@ -147,6 +147,7 @@ describe("GET /users", function () {
           lastName: "U1L",
           email: "user1@user.com",
           isAdmin: false,
+          jobs: expect.any(Array)
         },
         {
           username: "u2",
@@ -154,6 +155,7 @@ describe("GET /users", function () {
           lastName: "U2L",
           email: "user2@user.com",
           isAdmin: false,
+          jobs: expect.any(Array)
         },
         {
           username: "u3",
@@ -161,6 +163,7 @@ describe("GET /users", function () {
           lastName: "U3L",
           email: "user3@user.com",
           isAdmin: true, // JMT: changed this to "true", since we changed it in the _testCommon.js file
+          jobs: expect.any(Array)
         },
       ],
     });
@@ -209,6 +212,7 @@ describe("GET /users/:username", function () {
         lastName: "U1L",
         email: "user1@user.com",
         isAdmin: false,
+        jobs: expect.any(Array)
       },
     });
   });
@@ -225,6 +229,7 @@ describe("GET /users/:username", function () {
         lastName: "U1L",
         email: "user1@user.com",
         isAdmin: false,
+        jobs: expect.any(Array)
       },
     });
   });
@@ -370,4 +375,69 @@ describe("DELETE /users/:username", function () {
         .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(404);
   });
+});
+
+/************************************** APPLY /users/:username/jobs/:id */
+
+// JMT: modify to work with ensureCorrectUser middleware. changed all users to ADMIN user (u3Token) OR correct/incorrect user
+
+describe("APPLY /users/:username/jobs/:id", function () {
+  test("works for ADMIN users", async function () {
+    const job1 = await db.query(`
+      SELECT *
+      FROM jobs
+      WHERE title='job1'`);
+    const testJobId = job1.rows[0].id;
+
+    const resp = await request(app)
+        .post(`/users/u1/jobs/${testJobId}`)
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(200);
+    // JMT: response will be JSON so need quotes around jobID
+    const jobIdToStr = testJobId.toString()
+    expect(resp.body).toEqual({ applied: jobIdToStr });
+  });
+
+  // JMT: add check for CORRECT user (token same as username), but NOT ADMIN
+  test("works for CORRECT user NON-ADMIN", async function () {
+    const job1 = await db.query(`
+      SELECT *
+      FROM jobs
+      WHERE title='job1'`);
+    const testJobId = job1.rows[0].id;
+
+    const resp = await request(app)
+        .post(`/users/u1/jobs/${testJobId}`)
+        .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(200);
+    // JMT: response will be JSON so need quotes around jobID
+    const jobIdToStr = testJobId.toString()
+    expect(resp.body).toEqual({ applied: jobIdToStr });
+  });
+  // JMT: end
+
+  test("unauth for anon", async function () {
+    const job1 = await db.query(`
+      SELECT *
+      FROM jobs
+      WHERE title='job1'`);
+    const testJobId = job1.rows[0].id;
+
+    const resp = await request(app)
+        .post(`/users/u1/jobs/${testJobId}`);
+    expect(resp.statusCode).toEqual(401);
+  });
+
+  test("unauth for WRONG user", async function () {
+    const job1 = await db.query(`
+      SELECT *
+      FROM jobs
+      WHERE title='job1'`);
+    const testJobId = job1.rows[0].id;
+
+    const resp = await request(app)
+        .post(`/users/u2/jobs/${testJobId}`);
+    expect(resp.statusCode).toEqual(401);
+  });
+
 });

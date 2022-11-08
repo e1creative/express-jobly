@@ -4,6 +4,11 @@ const db = require("../db.js");
 const { BCRYPT_WORK_FACTOR } = require("../config");
 
 async function commonBeforeAll() {
+  // JMT: add delete from jobs and applications before all tests run
+  // noinspection SqlWithoutWhere
+  await db.query("DELETE FROM applications");
+  // noinspection SqlWithoutWhere
+  await db.query("DELETE FROM jobs");
   // noinspection SqlWithoutWhere
   await db.query("DELETE FROM companies");
   // noinspection SqlWithoutWhere
@@ -28,6 +33,16 @@ async function commonBeforeAll() {
         await bcrypt.hash("password1", BCRYPT_WORK_FACTOR),
         await bcrypt.hash("password2", BCRYPT_WORK_FACTOR),
       ]);
+  
+  // JMT: add jobs for testing
+  await db.query(`
+      INSERT INTO jobs(title,
+                      salary,
+                      equity,
+                      company_handle)
+      VALUES ('job1', 55000, 0, 'c1'),
+             ('job2', 65000, 0, 'c2'),
+             ('job3', 75000, 0, 'c3')`);
 }
 
 async function commonBeforeEach() {

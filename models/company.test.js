@@ -123,6 +123,7 @@ describe("findAll", function () {
 /************************************** get */
 
 describe("get", function () {
+  // JMT: test modified to include jobs
   test("works", async function () {
     let company = await Company.get("c1");
     expect(company).toEqual({
@@ -131,6 +132,7 @@ describe("get", function () {
       description: "Desc1",
       numEmployees: 1,
       logoUrl: "http://c1.img",
+      jobs: expect.any(Array)
     });
   });
 

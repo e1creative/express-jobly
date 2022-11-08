@@ -103,16 +103,51 @@ class User {
 
   static async findAll() {
     const result = await db.query(
-          `SELECT username,
-                  first_name AS "firstName",
-                  last_name AS "lastName",
-                  email,
-                  is_admin AS "isAdmin"
-           FROM users
-           ORDER BY username`,
+          `SELECT
+                    users.username,
+                    first_name AS "firstName",
+                    last_name AS "lastName",
+                    email,
+                    is_admin AS "isAdmin",
+                    job_id
+            FROM users
+            LEFT JOIN applications
+            ON users.username = applications.username
+           ORDER BY users.username`,
     );
 
-    return result.rows;
+    // JMT: begin modified code
+    const resultRows = result.rows;
+
+    // JMT: initialize jobs array to use in our forEach loop
+    const jobs = [];
+    // JMT: initialize allUsers array. we will return this final array of users
+    const allUsers = [];
+    
+    resultRows.forEach((currObj,i) => {
+      // push job_id to the job array
+      jobs.push(currObj.job_id)
+
+      /**
+       *  JMT: if there is no next row, or the nextRow.username is different, 
+       * than push the object to our array of all users
+       */
+      if (!result.rows[i+1] || currObj.username !== result.rows[i+1].username) {
+        const { username, firstName, lastName, email, isAdmin } = currObj;
+        /**
+         * JMT: spread the jobs array because as we mutate the original w/ "push" 
+         * the original array will also change in our finalUserObj that we push.
+         * Since we are 0'ing the array at the final "round" it will also zero all
+         * other references to that array in our allUsers list of objects!!!
+         */
+        const finalUserObj = { username, firstName, lastName, email, isAdmin, jobs: [...jobs] }
+        allUsers.push(finalUserObj);
+        jobs.length = 0;
+      }
+    });
+
+    // JMT: return an array of users
+    return allUsers;
   }
 
   /** Given a username, return data about user.
@@ -125,21 +160,28 @@ class User {
 
   static async get(username) {
     const userRes = await db.query(
-          `SELECT username,
+         `SELECT
+                  users.username,
                   first_name AS "firstName",
                   last_name AS "lastName",
                   email,
-                  is_admin AS "isAdmin"
-           FROM users
-           WHERE username = $1`,
+                  is_admin AS "isAdmin",
+                  job_id
+          FROM users
+          LEFT JOIN applications
+          ON users.username = applications.username
+          WHERE users.username = $1;`,
         [username],
     );
 
     const user = userRes.rows[0];
-
     if (!user) throw new NotFoundError(`No user: ${username}`);
 
-    return user;
+    const { firstName, lastName, email, isAdmin } = userRes.rows[0];
+
+    const jobs = userRes.rows.map(r => r.job_id);
+
+    return ({ username, firstName, lastName, email, isAdmin, jobs });
   }
 
   /** Update user data with `data`.
@@ -215,6 +257,51 @@ class User {
     const user = result.rows[0];
 
     if (!user) throw new NotFoundError(`No user: ${username}`);
+  }
+
+  /** Apply for a job (given user from database, and job_id); returns jobID. */
+
+  static async applyForJob(username, jobId){
+    // JMT: check if user exists
+    const userCheck = await db.query(
+      `SELECT username
+       FROM users
+       WHERE username = $1`,
+       [username]);
+
+    if (!userCheck.rows[0]) {
+      throw new BadRequestError(`User not found`);
+    }
+
+    // JMT: check if job exists
+    const jobCheck = await db.query(
+      `SELECT id
+       FROM jobs
+       WHERE id = $1`,
+       [jobId]);
+
+    if (!jobCheck.rows[0]) {
+      throw new BadRequestError(`Job not found`);
+    }
+
+    // JMT: check if application exists.
+    const duplicateCheck = await db.query(
+      `SELECT username, job_id
+       FROM applications
+       WHERE username = $1 and job_id = $2`,
+       [username, jobId]);
+
+    if (duplicateCheck.rows[0]) {
+      throw new BadRequestError(`Duplicate application found`);
+    }
+
+    await db.query(
+      `INSERT INTO applications (username, job_id)
+       VALUES ($1, $2)
+       RETURNING username, job_id
+      `, [username, jobId]);
+
+    return ({ applied: jobId })
   }
 }
 

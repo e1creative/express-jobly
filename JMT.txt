@@ -1,4 +1,19 @@
 - Added commenting in:
   /helpers/sql.js,
+  /helpers/sql.test.js
+  /middleware/*
   /models/user.js,
+  /models/user.test.js,
   /models/company.js
+  /models/company.test.js
+  /models/_testCommon.js
+  /routes/*
+
+- Added files:
+  /helpers/sql.test.js
+  /models/job.js
+  /models/job.test.js
+
+- ERROR found in:
+  /helpers/tokens.test.js
+  - line 17: const token = createToken() will not work because initial key of "is_admin" should be "isAdmin"
